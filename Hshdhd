@@ -1,106 +1,100 @@
---[[
-  Roblox Loading Screen Script (English Version)
-  - Covers the entire screen (including the chat bar and settings)
-  - Centered white text: "waiting for anti ban"
-  - White horizontal bar slowly animates from left to right beneath the text
-  - Solid black background
-  - Easy to use: just place this LocalScript in StarterGui
-
-  To remove the loading screen later, call: screenGui:Destroy()
---]]
+-- LocalScript (đặt trong StarterPlayerScripts hoặc StarterGui)
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local guiParent = player:WaitForChild("PlayerGui")
 
--- Create ScreenGui
+local COUNTDOWN_TIME = 40 -- giây
+
+-- Tạo ScreenGui
 local screenGui = Instance.new("ScreenGui")
-screenGui.IgnoreGuiInset = true
+screenGui.Name = "SpeedHubBypassGui"
 screenGui.ResetOnSpawn = false
-screenGui.Name = "LoadingScreen"
-screenGui.DisplayOrder = 10000 -- Always on top
-screenGui.Parent = playerGui
+screenGui.Parent = guiParent
 
--- Black background
-local background = Instance.new("Frame")
-background.BackgroundColor3 = Color3.new(0,0,0)
-background.Size = UDim2.new(1,0,1,0)
-background.Position = UDim2.new(0,0,0,0)
-background.BorderSizePixel = 0
-background.Parent = screenGui
+-- Panel chính
+local frame = Instance.new("Frame")
+frame.Name = "Panel"
+frame.Size = UDim2.new(0, 340, 0, 120)
+frame.Position = UDim2.new(0.5, -170, 0.15, 0)
+frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
 
--- Centered white text
-local textLabel = Instance.new("TextLabel")
-textLabel.Size = UDim2.new(1, 0, 0, 50)
-textLabel.Position = UDim2.new(0, 0, 0.45, 0)
-textLabel.BackgroundTransparency = 1
-textLabel.Text = "Trying to find an old server"
-textLabel.TextColor3 = Color3.new(1,1,1)
-textLabel.Font = Enum.Font.GothamBold
-textLabel.TextSize = 32
-textLabel.TextStrokeTransparency = 0.5
-textLabel.TextWrapped = true
-textLabel.Parent = screenGui
+-- Title text: Bypass Key - SpeedHub
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Size = UDim2.new(1, -20, 0, 36)
+title.Position = UDim2.new(0, 10, 0, 8)
+title.BackgroundTransparency = 1
+title.Text = "Bypass Key — SpeedHub"
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
 
--- White progress bar background (faded)
-local barBack = Instance.new("Frame")
-barBack.Size = UDim2.new(0.3, 0, 0, 8)
-barBack.Position = UDim2.new(0.35, 0, 0.53, 0)
-barBack.BackgroundTransparency = 0.5
-barBack.BackgroundColor3 = Color3.new(1,1,1)
-barBack.BorderSizePixel = 0
-barBack.Parent = screenGui
+-- Countdown label
+local countdownLabel = Instance.new("TextLabel")
+countdownLabel.Name = "Countdown"
+countdownLabel.Size = UDim2.new(1, -20, 0, 28)
+countdownLabel.Position = UDim2.new(0, 10, 0, 48)
+countdownLabel.BackgroundTransparency = 1
+countdownLabel.Text = "Thời gian: " .. tostring(COUNTDOWN_TIME) .. "s"
+countdownLabel.TextColor3 = Color3.fromRGB(220,220,220)
+countdownLabel.Font = Enum.Font.Gotham
+countdownLabel.TextSize = 18
+countdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+countdownLabel.Parent = frame
 
--- Animated white bar
-local bar = Instance.new("Frame")
-bar.Size = UDim2.new(0, 0, 1, 0)
-bar.Position = UDim2.new(0, 0, 0, 0)
-bar.BackgroundColor3 = Color3.new(1,1,1)
-bar.BorderSizePixel = 0
-bar.Parent = barBack
+-- Progress bar background
+local progressBg = Instance.new("Frame")
+progressBg.Name = "ProgressBG"
+progressBg.Size = UDim2.new(1, -20, 0, 16)
+progressBg.Position = UDim2.new(0, 10, 0, 84)
+progressBg.BackgroundColor3 = Color3.fromRGB(60,60,60)
+progressBg.BorderSizePixel = 0
+progressBg.Parent = frame
 
--- Hide chat bar if it appears
-local function hideChat()
-    local chat = playerGui:FindFirstChild("Chat")
-    if chat then
-        chat.Enabled = false
-    end
-end
+-- Progress fill (bắt đầu đầy)
+local progressFill = Instance.new("Frame")
+progressFill.Name = "ProgressFill"
+progressFill.Size = UDim2.new(1, 0, 1, 0)
+progressFill.Position = UDim2.new(0, 0, 0, 0)
+progressFill.BackgroundColor3 = Color3.fromRGB(100,200,255)
+progressFill.BorderSizePixel = 0
+progressFill.Parent = progressBg
 
-hideChat()
-playerGui.ChildAdded:Connect(function(child)
-    if child.Name == "Chat" then
-        child.Enabled = false
+-- Countdown logic
+local startTime = tick()
+local ended = false
+
+-- Tạo tween để giảm chiều rộng thanh tiến trình trong COUNTDOWN_TIME
+local goal = {Size = UDim2.new(0, 0, 1, 0)}
+local tweenInfo = TweenInfo.new(COUNTDOWN_TIME, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+local progressTween = TweenService:Create(progressFill, tweenInfo, goal)
+progressTween:Play()
+
+local conn
+conn = RunService.RenderStepped:Connect(function()
+    local elapsed = tick() - startTime
+    local remain = math.max(0, COUNTDOWN_TIME - elapsed)
+    countdownLabel.Text = string.format("Thời gian: %d s", math.ceil(remain)) -- show integer seconds
+
+    if remain <= 0 and not ended then
+        ended = true
+        -- Khi hết thời gian: đổi text, dừng tween, sau đó xóa GUI nhẹ nhàng
+        countdownLabel.Text = "Hết thời gian"
+        -- nhỏ hiệu ứng fade
+        local fade = TweenService:Create(frame, TweenInfo.new(0.5), {BackgroundTransparency = 1})
+        fade:Play()
+        fade.Completed:Wait()
+        if conn and conn.Connected then conn:Disconnect() end
+        screenGui:Destroy()
     end
 end)
-
--- Animate the white bar
-local speed = 2 -- seconds to go from left to right
-local TweenService = game:GetService("TweenService")
-local function animateBar()
-    while screenGui.Parent do
-        bar.Size = UDim2.new(0, 0, 1, 0)
-        bar.Position = UDim2.new(0, 0, 0, 0)
-        bar.BackgroundTransparency = 0
-        -- Tween from left to right
-        local tweenInfo = TweenInfo.new(speed, Enum.EasingStyle.Linear)
-        local tween = TweenService:Create(
-            bar,
-            tweenInfo,
-            {Size = UDim2.new(1,0,1,0)}
-        )
-        tween:Play()
-        tween.Completed:Wait()
-        -- Quick fade out and repeat
-        for i = 0, 1, 0.1 do
-            bar.BackgroundTransparency = i
-            wait(0.01)
-        end
-        wait(0.2)
-    end
-end
-
-spawn(animateBar)
-
--- To remove the loading screen later, just use:
--- game.Players.LocalPlayer.PlayerGui.LoadingScreen:Destroy()
+  
